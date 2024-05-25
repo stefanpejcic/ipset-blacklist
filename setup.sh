@@ -1,6 +1,6 @@
 #!/bin/bash
 
 
-cp ipset-blocklist.service /etc/systemd/system/ipset-blocklist.service
+cp ipset-blacklist.service /etc/systemd/system/ipset-blacklist.service
 
 
