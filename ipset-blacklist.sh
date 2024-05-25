@@ -117,6 +117,7 @@ update_ufw() {
     done
 
     # Restart UFW to apply the changes
+    install_command "ufw"
     ufw reload
     echo "UFW updated"
 }
