@@ -238,7 +238,7 @@ delete_blacklist() {
 
 
 usage() {
-    echo "Usage: $0 {"
+    echo "Usage: opencli blacklist"
     echo "  --fetch              : Downloads new IP addresses for all enabled blocklists."
     echo "  --update_ufw         : Update all ipsets rules and reload UFW service."
     echo "  --delete_ipsets      : Deletes and disables all IP sets from the firewall."
@@ -246,7 +246,7 @@ usage() {
     echo "  --enable-blacklist=  : Enable a blacklist."
     echo "  --disable-blacklist= : Disable a blacklist."
     echo "  --delete-blacklist=  : Delete a blacklist."
-    echo "}"
+    echo ""
     exit 1
 }
 
