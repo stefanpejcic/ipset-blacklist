@@ -11,13 +11,14 @@ set_api_key() {
         return 1
     fi
 
-    if grep -q "^abuseipdb|" "$CONFIG_FILE"; then
+    if grep -q "^#abuseipdb|" "$CONFIG_FILE"; then
+        sed "s|^#abuseipdb|https://api.abuseipdb.com/api/v2/blacklist|.*$|abuseipdb|https://api.abuseipdb.com/api/v2/blacklist|$new_api_key|" "$CONFIG_FILE" > "$temp_file"
+    elif grep -q "^abuseipdb|" "$CONFIG_FILE"; then
         sed "s|^abuseipdb|https://api.abuseipdb.com/api/v2/blacklist|.*$|abuseipdb|https://api.abuseipdb.com/api/v2/blacklist|$new_api_key|" "$CONFIG_FILE" > "$temp_file"
     else
         echo "abuseipdb|https://api.abuseipdb.com/api/v2/blacklist|$new_api_key" >> "$CONFIG_FILE"
     fi
 
-    # Replace the original configuration file with the updated one
     mv "$temp_file" "$CONFIG_FILE"
     echo "API key for AbuseIPDB is saved in $CONFIG_FILE"
 }
