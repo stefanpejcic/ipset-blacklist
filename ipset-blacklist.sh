@@ -4,18 +4,24 @@ CONFIG_DIR="/etc/openpanel/ufw"
 BLACKLIST_CONF="${CONFIG_DIR}/blacklists.conf"
 EXCLUDE_FILE="${CONFIG_DIR}/exclude.list"
 
-check_install_jq() {
-    if ! command -v jq &> /dev/null; then
-        echo "jq is not installed. Installing jq..."
-        apt-get update
-        apt-get install -y jq
-        if [ $? -ne 0 ]; then
-            echo "Failed to install jq."
+install_command() {
+    local command_name=$1
+    # Check if the command is installed
+    if ! command -v "$command_name" &> /dev/null
+    then
+        echo "$command_name is not installed. Installing..."
+        sudo apt update
+        sudo apt install -y "$command_name"
+        if [ $? -eq 0 ]; then
+            echo "$command_name installed successfully."
+        else
+            echo "Failed to install $command_name. Exiting..."
             exit 1
         fi
-        echo "jq installed successfully."
     fi
 }
+
+
 
 fetch_abuseipdb() {
     URL=$1
@@ -27,7 +33,7 @@ fetch_abuseipdb() {
         echo "Error fetching IPs"
         exit 1
     fi
-    check_install_jq
+    install_command "jq"
     echo $response | jq -r '.data[].ipAddress' > $OUTPUT_FILE
     echo "IPs fetched and saved to $OUTPUT_FILE"
 }
@@ -132,9 +138,11 @@ fi
 
 case "$1" in
     --fetch)
+        install_command "ipset"
         process_blacklists
         ;;
     --update_ufw)
+        install_command "ipset"
         update_ufw
         ;;
     *)
