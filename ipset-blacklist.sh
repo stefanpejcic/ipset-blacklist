@@ -3,7 +3,7 @@
 CONFIG_DIR="/etc/openpanel/ufw"
 BLACKLIST_CONF="${CONFIG_DIR}/blacklists.conf"
 EXCLUDE_FILE="${CONFIG_DIR}/exclude.list"
-IP_LIMIT_PER_BLACKLIST="150000"
+IP_LIMIT_PER_BLACKLIST="50000"
 
 install_command() {
     local command_name=$1
