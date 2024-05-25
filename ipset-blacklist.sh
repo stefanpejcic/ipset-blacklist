@@ -28,7 +28,7 @@ fetch_abuseipdb() {
     URL=$1
     API_KEY=$2
     OUTPUT_FILE=$3
-    echo "Fetching IPs from AbuseIPDB..."
+    echo "Fetching IPs from AbuseIPDB API..."
     response=$(curl -s -G ${URL} --data-urlencode "confidenceMinimum=90" -H "Key: ${API_KEY}" -H "Accept: application/json")
     if [ $? -ne 0 ]; then
         echo "Error fetching IPs"
@@ -55,8 +55,9 @@ fetch_generic_blacklist() {
 update_ipset() {
     IPSET_NAME=$1
     IP_FILE=$2
-    
-    echo "Updating IP set $IPSET_NAME..."
+    echo ""
+    echo "Updating IPs for: $IPSET_NAME..."
+    echo ""
     # Create the ipset if it doesn't exist
     ipset list $IPSET_NAME > /dev/null 2>&1
     if [ $? -eq 0 ]; then
@@ -66,7 +67,10 @@ update_ipset() {
     # ipset v7.15: Hash is full, cannot add more elements
     #
     ipset create $IPSET_NAME hash:ip maxelem $IP_LIMIT_PER_BLACKLIST
-
+    if [ $? -gt 0 ]; then
+        echo "ERROR: Can't create $name ipset"
+        exit 1
+    fi
     # Flush the IP set to remove old entries
     ipset flush $IPSET_NAME
 
@@ -85,6 +89,7 @@ update_ipset() {
         fi
         ip=$(echo $line | awk '{print $1}')
         if [[ ! " ${exclude_ips[@]} " =~ " ${ip} " ]]; then
+            echo "Adding IP: $ip"
             ipset add $IPSET_NAME $ip
         else
             echo "Excluding IP: $ip"
@@ -93,7 +98,9 @@ update_ipset() {
 
     # Save the IP set
     ipset save > /etc/ipset.conf
+    echo ""
     echo "IP set $IPSET_NAME updated"
+    echo ""
 }
 
 
