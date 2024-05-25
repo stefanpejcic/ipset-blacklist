@@ -165,10 +165,74 @@ process_blacklists() {
     done < $BLACKLIST_CONF
 }
 
+
+add_blacklist() {
+    local entry="$1"
+    if ! grep -qF "$entry" "$BLACKLIST_CONF"; then
+        echo "$entry" >> "$BLACKLIST_CONF"
+        echo "Added new blacklist: $entry"
+    else
+        echo "Blacklist already exists: $entry"
+    fi
+}
+
+parse_add_blacklist_flag() {
+    local flag="$1"
+    local name=""
+    local url=""
+    local api_key=""
+
+    for kv in ${flag//&/ }; do
+        key=${kv%%=*}
+        value=${kv#*=}
+        case "$key" in
+            name)
+                name="$value"
+                ;;
+            URL)
+                url="$value"
+                ;;
+        esac
+    done
+
+    if [ -z "$name" ] || [ -z "$url" ]; then
+        echo "Invalid format. Usage: --add-blacklist name=<name> URL=<url>"
+        exit 1
+    fi
+
+    entry="$name|$url"
+    add_blacklist "$entry"
+}
+
+
+enable_blacklist() {
+    local blacklist_name="$1"
+    if grep -qF "#$blacklist_name" "$BLACKLIST_CONF"; then
+        sed -i "s|^#\($blacklist_name.*\)|\1|" "$BLACKLIST_CONF"
+        echo "Enabled blacklist: $blacklist_name"
+    else
+        echo "Blacklist not found or already enabled: $blacklist_name"
+    fi
+}
+
+disable_blacklist() {
+    local blacklist_name="$1"
+    if grep -qF "^$blacklist_name" "$BLACKLIST_CONF"; then
+        sed -i "s|^\($blacklist_name.*\)|#\1|" "$BLACKLIST_CONF"
+        echo "Disabled blacklist: $blacklist_name"
+    else
+        echo "Blacklist not found or already disabled: $blacklist_name"
+    fi
+}
+
+
+
+
 usage() {
-    echo "Usage: $0 {--fetch|--update_ufw}"
+    echo "Usage: $0 {--fetch|--update_ufw|--delete_ipsets|--add-blacklist name=<name> URL=<url>|--enable-blacklist=|--disable-blacklist=}"
     exit 1
 }
+
 
 if [ $# -ne 1 ]; then
     usage
@@ -187,6 +251,26 @@ case "$1" in
         install_command "ipset"
         delete_all_ipsets
         service ufw reload
+        ;;
+    --add-blacklist*)
+        install_command "ipset"
+        name=$(echo "$1" | sed -n 's/.*name=\([^ ]*\).*/\1/p')
+        url=$(echo "$1" | sed -n 's/.*URL=\([^ ]*\).*/\1/p')
+        if [ -n "$name" ] && [ -n "$url" ]; then
+            add_blacklist "$name" "$url"
+        else
+            echo "Invalid format. Use --add-blacklist name=<name> URL=<url>"
+        fi
+        ;;
+    --enable-blacklist=*)
+        install_command "ipset"
+        blacklist_name="${1#--enable-blacklist=}"
+        enable_blacklist "$blacklist_name"
+        ;;
+    --disable-blacklist=*)
+        install_command "ipset"
+        blacklist_name="${1#--disable-blacklist=}"
+        disable_blacklist "$blacklist_name"
         ;;
     *)
         usage
