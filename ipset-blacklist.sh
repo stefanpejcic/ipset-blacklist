@@ -64,7 +64,7 @@ update_ipset() {
     # fixes
     # ipset v7.15: Hash is full, cannot add more elements
     #
-    ipset create $IPSET_NAME hash:ip maxelem 10000
+    ipset create $IPSET_NAME hash:ip maxelem 20000
 
     # Flush the IP set to remove old entries
     ipset flush $IPSET_NAME
@@ -77,7 +77,12 @@ update_ipset() {
     fi
 
     # Add new IPs to the IP set, skipping excluded IPs
-    while IFS= read -r ip; do
+    while IFS= read -r line; do
+        # Exclude lines starting with '#' or ';'
+        if [[ $line =~ ^[[:space:]]*([#;].*)?$ ]]; then
+            continue
+        fi
+        ip=$(echo $line | awk '{print $1}')
         if [[ ! " ${exclude_ips[@]} " =~ " ${ip} " ]]; then
             ipset add $IPSET_NAME $ip
         else
@@ -89,6 +94,7 @@ update_ipset() {
     ipset save > /etc/ipset.conf
     echo "IP set $IPSET_NAME updated"
 }
+
 
 update_ufw() {
     echo "Updating UFW rules..."
