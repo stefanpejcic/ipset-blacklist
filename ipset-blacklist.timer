@@ -1,0 +1,9 @@
+[Unit]
+Description=Run UFW blacklist update daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
