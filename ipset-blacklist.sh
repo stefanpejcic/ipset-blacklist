@@ -273,7 +273,7 @@ case "$1" in
     --add-blacklist*)
         install_command "ipset"
         name=$(echo "$1" | sed -n 's/.*name=\([^ ]*\).*/\1/p')
-        url=$(echo "$1" | sed -n 's/.*URL=\([^ ]*\).*/\1/p')
+        url=$(echo "$1" | sed -n 's/.*url=\([^ ]*\).*/\1/p')
         if [ -n "$name" ] && [ -n "$url" ]; then
             add_blacklist "$name" "$url"
         else
