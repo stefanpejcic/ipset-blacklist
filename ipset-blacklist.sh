@@ -54,19 +54,17 @@ fetch_generic_blacklist() {
 update_ipset() {
     IPSET_NAME=$1
     IP_FILE=$2
-
+    
     echo "Updating IP set $IPSET_NAME..."
-    # Create the IP set if it doesn't exist
+    # Create the ipset if it doesn't exist
     ipset list $IPSET_NAME > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        ipset create $IPSET_NAME hash:ip maxelem 10000
-    else
-        # fixes
-        # ipset v7.15: Hash is full, cannot add more elements
-        #
+    if [ $? -eq 0 ]; then
         ipset destroy $IPSET_NAME
-        ipset create $IPSET_NAME hash:ip maxelem 10000
     fi
+    # fixes
+    # ipset v7.15: Hash is full, cannot add more elements
+    #
+    ipset create $IPSET_NAME hash:ip maxelem 10000
 
     # Flush the IP set to remove old entries
     ipset flush $IPSET_NAME
