@@ -52,6 +52,20 @@ fetch_generic_blacklist() {
 }
 
 
+delete_all_ipsets() {
+    echo ""
+    echo "Deleting all existing IP sets..."
+    echo ""
+    # List all IP sets and delete each one
+    ipset list -name | while read -r ipset_name; do
+        echo "Deleting IP set: $ipset_name"
+        ipset destroy $ipset_name
+    done
+    echo ""
+    echo "All IP sets deleted."
+    echo ""
+}
+
 update_ipset() {
     IPSET_NAME=$1
     IP_FILE=$2
@@ -168,6 +182,11 @@ case "$1" in
     --update_ufw)
         install_command "ipset"
         update_ufw
+        ;;
+    --delete-ipsets)
+        install_command "ipset"
+        delete_all_ipsets
+        service ufw reload
         ;;
     *)
         usage
