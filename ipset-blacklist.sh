@@ -257,6 +257,10 @@ if [ $# -ne 1 ]; then
 fi
 
 case "$1" in
+    help)
+       usage
+       exit 1
+        ;;
     --fetch)
         install_command "ipset"
         process_blacklists
