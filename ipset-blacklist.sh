@@ -81,16 +81,20 @@ update_ipset() {
         exclude_ips=()
     fi
 
-    # Add new IPs to the IP set, skipping excluded IPs
     while IFS= read -r line; do
         # Exclude lines starting with '#' or ';'
         if [[ $line =~ ^[[:space:]]*([#;].*)?$ ]]; then
             continue
         fi
-        ip=$(echo $line | awk '{print $1}')
-        if [[ ! " ${exclude_ips[@]} " =~ " ${ip} " ]]; then
-            echo "Adding IP: $ip"
-            ipset add $IPSET_NAME $ip
+        local ip=$(echo $line | awk '{print $1}')
+        # skip excluded ips
+        if ! [[ " ${exclude_ips[@]} " =~ " ${ip} " ]]; then
+            if ! ipset add $IPSET_NAME $ip 2>&1 | grep -q "Hash is full"; then
+                echo $ip
+            else
+                echo "ERROR: reached limit of $IP_LIMIT_PER_BLACKLIST IP addresses for this ipset $IPSET_NAME"
+                return 1
+            fi
         else
             echo "Excluding IP: $ip"
         fi
