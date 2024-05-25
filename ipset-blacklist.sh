@@ -58,7 +58,7 @@ update_ipset() {
     # Create the IP set if it doesn't exist
     ipset list $IPSET_NAME > /dev/null 2>&1
     if [ $? -ne 0 ]; then
-        ipset create $IPSET_NAME hash:ip
+        ipset create $IPSET_NAME hash:ip maxelem 10000
     fi
 
     # Flush the IP set to remove old entries
