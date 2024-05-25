@@ -1,113 +1,139 @@
-#!/usr/bin/env bash
-#
-# usage update-blacklist.sh <configuration file>
-# eg: update-blacklist.sh /etc/ipset-blacklist/ipset-blacklist.conf
-#
-function exists() { command -v "$1" >/dev/null 2>&1 ; }
+#!/bin/bash
 
-if [[ -z "$1" ]]; then
-  echo "Error: please specify a configuration file, e.g. $0 /etc/ipset-blacklist/ipset-blacklist.conf"
-  exit 1
-fi
+CONFIG_DIR="/etc/openpanel/ufw"
+BLACKLIST_CONF="${CONFIG_DIR}/blacklists.conf"
+EXCLUDE_FILE="${CONFIG_DIR}/exclude.list"
 
-# shellcheck source=ipset-blacklist.conf
-if ! source "$1"; then
-  echo "Error: can't load configuration file $1"
-  exit 1
-fi
+fetch_abuseipdb() {
+    API_KEY=$1
+    OUTPUT_FILE=$2
+    echo "Fetching IPs from AbuseIPDB..."
+    response=$(curl -s -G https://api.abuseipdb.com/api/v2/blacklist --data-urlencode "confidenceMinimum=90" -H "Key: ${API_KEY}" -H "Accept: application/json")
+    if [ $? -ne 0 ]; then
+        echo "Error fetching IPs"
+        exit 1
+    fi
+    echo $response | jq -r '.data[].ipAddress' > $OUTPUT_FILE
+    echo "IPs fetched and saved to $OUTPUT_FILE"
+}
 
-if ! exists curl && exists egrep && exists grep && exists ipset && exists iptables && exists sed && exists sort && exists wc ; then
-  echo >&2 "Error: searching PATH fails to find executables among: curl egrep grep ipset iptables sed sort wc"
-  exit 1
-fi
+fetch_generic_blacklist() {
+    URL=$1
+    OUTPUT_FILE=$2
+    echo "Fetching IPs from $URL..."
+    curl -s $URL -o $OUTPUT_FILE
+    if [ $? -ne 0 ]; then
+        echo "Error fetching IPs from $URL"
+        exit 1
+    fi
+    echo "IPs fetched and saved to $OUTPUT_FILE"
+}
 
-DO_OPTIMIZE_CIDR=no
-if exists iprange && [[ ${OPTIMIZE_CIDR:-yes} != no ]]; then
-  DO_OPTIMIZE_CIDR=yes
-fi
+update_ipset() {
+    IPSET_NAME=$1
+    IP_FILE=$2
 
-if [[ ! -d $(dirname "$IP_BLACKLIST") || ! -d $(dirname "$IP_BLACKLIST_RESTORE") ]]; then
-  echo >&2 "Error: missing directory(s): $(dirname "$IP_BLACKLIST" "$IP_BLACKLIST_RESTORE"|sort -u)"
-  exit 1
-fi
+    echo "Updating IP set $IPSET_NAME..."
+    # Create the IP set if it doesn't exist
+    ipset list $IPSET_NAME > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        ipset create $IPSET_NAME hash:ip
+    fi
 
-# create the ipset if needed (or abort if does not exists and FORCE=no)
-if ! ipset list -n|command grep -q "$IPSET_BLACKLIST_NAME"; then
-  if [[ ${FORCE:-no} != yes ]]; then
-    echo >&2 "Error: ipset does not exist yet, add it using:"
-    echo >&2 "# ipset create $IPSET_BLACKLIST_NAME -exist hash:net family inet hashsize ${HASHSIZE:-16384} maxelem ${MAXELEM:-65536}"
+    # Flush the IP set to remove old entries
+    ipset flush $IPSET_NAME
+
+    # Read exclusion list if it exists
+    if [ -f $EXCLUDE_FILE ]; then
+        mapfile -t exclude_ips < $EXCLUDE_FILE
+    else
+        exclude_ips=()
+    fi
+
+    # Add new IPs to the IP set, skipping excluded IPs
+    while IFS= read -r ip; do
+        if [[ ! " ${exclude_ips[@]} " =~ " ${ip} " ]]; then
+            ipset add $IPSET_NAME $ip
+        else
+            echo "Excluding IP: $ip"
+        fi
+    done < $IP_FILE
+
+    # Save the IP set
+    ipset save > /etc/ipset.conf
+    echo "IP set $IPSET_NAME updated"
+}
+
+update_ufw() {
+    echo "Updating UFW rules..."
+    for IPSET_NAME in $(ipset list -name); do
+        iptables -C INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix "Blocklist $IPSET_NAME: " > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            iptables -I INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix "Blocklist $IPSET_NAME: "
+            iptables -I INPUT -m set --match-set $IPSET_NAME src -j DROP
+            echo "iptables -I INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix 'Blocklist $IPSET_NAME: '" >> /etc/ufw/before.rules
+            echo "iptables -I INPUT -m set --match-set $IPSET_NAME src -j DROP" >> /etc/ufw/before.rules
+        fi
+    done
+
+    # Restart UFW to apply the changes
+    ufw reload
+    echo "UFW updated"
+}
+
+set_api_key() {
+    mkdir -p $CONFIG_DIR
+    echo "$1" > ${CONFIG_DIR}/abuseipdb.key
+    chmod 600 ${CONFIG_DIR}/abuseipdb.key
+    echo "API key saved to ${CONFIG_DIR}/abuseipdb.key"
+}
+
+process_blacklists() {
+    if [ ! -f $BLACKLIST_CONF ]; then
+        echo "Blacklist configuration file not found: $BLACKLIST_CONF"
+        exit 1
+    fi
+
+    while IFS= read -r line; do
+        # Skip commented or empty lines
+        [[ "$line" =~ ^#.*$ ]] && continue
+        [[ -z "$line" ]] && continue
+
+        IFS='|' read -r name url api_key <<< "$line"
+        IP_FILE="${CONFIG_DIR}/${name}_ips.txt"
+        IPSET_NAME="${name}_ipset"
+
+        if [[ "$name" == "abuseipdb" ]]; then
+            fetch_abuseipdb $api_key $IP_FILE
+        else
+            fetch_generic_blacklist $url $IP_FILE
+        fi
+
+        update_ipset $IPSET_NAME $IP_FILE
+    done < $BLACKLIST_CONF
+}
+
+usage() {
+    echo "Usage: $0 {--fetch|--update_ufw|--api-key=API_KEY}"
     exit 1
-  fi
-  if ! ipset create "$IPSET_BLACKLIST_NAME" -exist hash:net family inet hashsize "${HASHSIZE:-16384}" maxelem "${MAXELEM:-65536}"; then
-    echo >&2 "Error: while creating the initial ipset"
-    exit 1
-  fi
+}
+
+if [ $# -ne 1 ]; then
+    usage
 fi
 
-# create the iptables binding if needed (or abort if does not exists and FORCE=no)
-if ! iptables -nvL INPUT|command grep -q "match-set $IPSET_BLACKLIST_NAME"; then
-  # we may also have assumed that INPUT rule n°1 is about packets statistics (traffic monitoring)
-  if [[ ${FORCE:-no} != yes ]]; then
-    echo >&2 "Error: iptables does not have the needed ipset INPUT rule, add it using:"
-    echo >&2 "# iptables -I INPUT ${IPTABLES_IPSET_RULE_NUMBER:-1} -m set --match-set $IPSET_BLACKLIST_NAME src -j DROP"
-    exit 1
-  fi
-  if ! iptables -I INPUT "${IPTABLES_IPSET_RULE_NUMBER:-1}" -m set --match-set "$IPSET_BLACKLIST_NAME" src -j DROP; then
-    echo >&2 "Error: while adding the --match-set ipset rule to iptables"
-    exit 1
-  fi
-fi
-
-IP_BLACKLIST_TMP=$(mktemp)
-for i in "${BLACKLISTS[@]}"
-do
-  IP_TMP=$(mktemp)
-  (( HTTP_RC=$(curl -L -A "blacklist-update/script/github" --connect-timeout 10 --max-time 10 -o "$IP_TMP" -s -w "%{http_code}" "$i") ))
-  if (( HTTP_RC == 200 || HTTP_RC == 302 || HTTP_RC == 0 )); then # "0" because file:/// returns 000
-    command grep -Po '^(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?' "$IP_TMP" | sed -r 's/^0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)\.0*([0-9]+)$/\1.\2.\3.\4/' >> "$IP_BLACKLIST_TMP"
-    [[ ${VERBOSE:-yes} == yes ]] && echo -n "."
-  elif (( HTTP_RC == 503 )); then
-    echo -e "\\nUnavailable (${HTTP_RC}): $i"
-  else
-    echo >&2 -e "\\nWarning: curl returned HTTP response code $HTTP_RC for URL $i"
-  fi
-  rm -f "$IP_TMP"
-done
-
-# sort -nu does not work as expected
-sed -r -e '/^(0\.0\.0\.0|10\.|127\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.|22[4-9]\.|23[0-9]\.)/d' "$IP_BLACKLIST_TMP"|sort -n|sort -mu >| "$IP_BLACKLIST"
-if [[ ${DO_OPTIMIZE_CIDR} == yes ]]; then
-  if [[ ${VERBOSE:-no} == yes ]]; then
-    echo -e "\\nAddresses before CIDR optimization: $(wc -l "$IP_BLACKLIST" | cut -d' ' -f1)"
-  fi
-  < "$IP_BLACKLIST" iprange --optimize - > "$IP_BLACKLIST_TMP" 2>/dev/null
-  if [[ ${VERBOSE:-no} == yes ]]; then
-    echo "Addresses after CIDR optimization:  $(wc -l "$IP_BLACKLIST_TMP" | cut -d' ' -f1)"
-  fi
-  cp "$IP_BLACKLIST_TMP" "$IP_BLACKLIST"
-fi
-
-rm -f "$IP_BLACKLIST_TMP"
-
-# family = inet for IPv4 only
-cat >| "$IP_BLACKLIST_RESTORE" <<EOF
-create $IPSET_TMP_BLACKLIST_NAME -exist hash:net family inet hashsize ${HASHSIZE:-16384} maxelem ${MAXELEM:-65536}
-create $IPSET_BLACKLIST_NAME -exist hash:net family inet hashsize ${HASHSIZE:-16384} maxelem ${MAXELEM:-65536}
-EOF
-
-# can be IPv4 including netmask notation
-# IPv6 ? -e "s/^([0-9a-f:./]+).*/add $IPSET_TMP_BLACKLIST_NAME \1/p" \ IPv6
-sed -rn -e '/^#|^$/d' \
-  -e "s/^([0-9./]+).*/add $IPSET_TMP_BLACKLIST_NAME \\1/p" "$IP_BLACKLIST" >> "$IP_BLACKLIST_RESTORE"
-
-cat >> "$IP_BLACKLIST_RESTORE" <<EOF
-swap $IPSET_BLACKLIST_NAME $IPSET_TMP_BLACKLIST_NAME
-destroy $IPSET_TMP_BLACKLIST_NAME
-EOF
-
-ipset -file  "$IP_BLACKLIST_RESTORE" restore
-
-if [[ ${VERBOSE:-no} == yes ]]; then
-  echo
-  echo "Blacklisted addresses found: $(wc -l "$IP_BLACKLIST" | cut -d' ' -f1)"
-fi
+case "$1" in
+    --fetch)
+        process_blacklists
+        ;;
+    --update_ufw)
+        update_ufw
+        ;;
+    --api-key=*)
+        API_KEY="${1#*=}"
+        set_api_key "$API_KEY"
+        ;;
+    *)
+        usage
+        ;;
+esac
