@@ -4,15 +4,29 @@ CONFIG_DIR="/etc/openpanel/ufw"
 BLACKLIST_CONF="${CONFIG_DIR}/blacklists.conf"
 EXCLUDE_FILE="${CONFIG_DIR}/exclude.list"
 
+check_install_jq() {
+    if ! command -v jq &> /dev/null; then
+        echo "jq is not installed. Installing jq..."
+        apt-get update
+        apt-get install -y jq
+        if [ $? -ne 0 ]; then
+            echo "Failed to install jq."
+            exit 1
+        fi
+        echo "jq installed successfully."
+}
+
 fetch_abuseipdb() {
-    API_KEY=$1
-    OUTPUT_FILE=$2
+    URL=$1
+    API_KEY=$2
+    OUTPUT_FILE=$3
     echo "Fetching IPs from AbuseIPDB..."
-    response=$(curl -s -G https://api.abuseipdb.com/api/v2/blacklist --data-urlencode "confidenceMinimum=90" -H "Key: ${API_KEY}" -H "Accept: application/json")
+    response=$(curl -s -G ${URL} --data-urlencode "confidenceMinimum=90" -H "Key: ${API_KEY}" -H "Accept: application/json")
     if [ $? -ne 0 ]; then
         echo "Error fetching IPs"
         exit 1
     fi
+    check_install_jq
     echo $response | jq -r '.data[].ipAddress' > $OUTPUT_FILE
     echo "IPs fetched and saved to $OUTPUT_FILE"
 }
@@ -81,13 +95,6 @@ update_ufw() {
     echo "UFW updated"
 }
 
-set_api_key() {
-    mkdir -p $CONFIG_DIR
-    echo "$1" > ${CONFIG_DIR}/abuseipdb.key
-    chmod 600 ${CONFIG_DIR}/abuseipdb.key
-    echo "API key saved to ${CONFIG_DIR}/abuseipdb.key"
-}
-
 process_blacklists() {
     if [ ! -f $BLACKLIST_CONF ]; then
         echo "Blacklist configuration file not found: $BLACKLIST_CONF"
@@ -104,7 +111,7 @@ process_blacklists() {
         IPSET_NAME="${name}_ipset"
 
         if [[ "$name" == "abuseipdb" ]]; then
-            fetch_abuseipdb $api_key $IP_FILE
+            fetch_abuseipdb $url $api_key $IP_FILE
         else
             fetch_generic_blacklist $url $IP_FILE
         fi
@@ -114,7 +121,7 @@ process_blacklists() {
 }
 
 usage() {
-    echo "Usage: $0 {--fetch|--update_ufw|--api-key=API_KEY}"
+    echo "Usage: $0 {--fetch|--update_ufw}"
     exit 1
 }
 
@@ -128,10 +135,6 @@ case "$1" in
         ;;
     --update_ufw)
         update_ufw
-        ;;
-    --api-key=*)
-        API_KEY="${1#*=}"
-        set_api_key "$API_KEY"
         ;;
     *)
         usage
