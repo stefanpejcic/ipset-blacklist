@@ -42,13 +42,14 @@ fetch_generic_blacklist() {
     URL=$1
     OUTPUT_FILE=$2
     echo "Fetching IPs from $URL..."
-    curl -s $URL -o $OUTPUT_FILE
+    curl -s -L $URL -o $OUTPUT_FILE
     if [ $? -ne 0 ]; then
         echo "Error fetching IPs from $URL"
         exit 1
     fi
     echo "IPs fetched and saved to $OUTPUT_FILE"
 }
+
 
 update_ipset() {
     IPSET_NAME=$1
