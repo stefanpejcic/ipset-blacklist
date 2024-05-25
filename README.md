@@ -10,12 +10,12 @@ The ipset command doesn't work under OpenVZ. It works fine on dedicated and full
 ## Quick start for Debian/Ubuntu based installations
 
 ```bash
-bash setup.sh
+bash <(curl -sSL https://raw.githubusercontent.com/stefanpejcic/ipset-blacklist/master/setup.sh)
 ```
 
 With AbuseIPDB:
 ```bash
-bash setup.sh --abuseipdb-key=API_KEY_HERE
+bash <(curl -sSL https://raw.githubusercontent.com/stefanpejcic/ipset-blacklist/master/setup.sh) --abuseipdb-key=API_KEY_HERE
 ```
 
 ## Usage
