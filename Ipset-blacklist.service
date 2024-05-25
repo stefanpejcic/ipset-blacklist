@@ -1,0 +1,7 @@
+[Unit]
+Description=Block on UFW addresses from ip blacklists
+
+[Service]
+Type=oneshot
+ExecStart=/usr/ipset-blacklist.sh --fetch
+ExecStart=/usr/ipset-blacklist.sh --update_ufw
