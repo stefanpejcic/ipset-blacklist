@@ -65,7 +65,7 @@ update_ipset() {
         # ipset v7.15: Hash is full, cannot add more elements
         #
         ipset destroy $IPSET_NAME
-        ipset create $IPSET_NAME maxelem 10000
+        ipset create $IPSET_NAME hash:ip maxelem 10000
     fi
 
     # Flush the IP set to remove old entries
