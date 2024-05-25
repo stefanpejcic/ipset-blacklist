@@ -189,7 +189,7 @@ parse_add_blacklist_flag() {
             name)
                 name="$value"
                 ;;
-            URL)
+            url)
                 url="$value"
                 ;;
         esac
@@ -238,9 +238,18 @@ delete_blacklist() {
 
 
 usage() {
-    echo "Usage: $0 {--fetch|--update_ufw|--delete_ipsets|--add-blacklist name=<name> URL=<url>|--enable-blacklist=|--disable-blacklist=}"
+    echo "Usage: $0 {"
+    echo "  --fetch              : Downloads new IP addresses for all enabled blocklists."
+    echo "  --update_ufw         : Update all ipsets rules and reload UFW service."
+    echo "  --delete_ipsets      : Deletes and disables all IP sets from the firewall."
+    echo "  --add-blacklist name=<name> url=<url> : Add a new blacklist."
+    echo "  --enable-blacklist=  : Enable a blacklist."
+    echo "  --disable-blacklist= : Disable a blacklist."
+    echo "  --delete-blacklist=  : Delete a blacklist."
+    echo "}"
     exit 1
 }
+
 
 
 if [ $# -ne 1 ]; then
@@ -280,11 +289,17 @@ case "$1" in
         install_command "ipset"
         blacklist_name="${1#--disable-blacklist=}"
         disable_blacklist "$blacklist_name"
+        ipset flush "$blacklist_name"
+        ipset destroy "$blacklist_name"
+        ufw reload
         ;;
     --delete-blacklist=*)
         install_command "ipset"
         blacklist_name="${1#--delete-blacklist=}"
         delete_blacklist "$blacklist_name"
+        ipset flush "$blacklist_name"
+        ipset destroy "$blacklist_name"
+        ufw reload
         ;;
     *)
         usage
