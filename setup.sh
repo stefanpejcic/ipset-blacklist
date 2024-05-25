@@ -23,18 +23,22 @@ set_api_key() {
     echo "API key for AbuseIPDB is saved in $CONFIG_FILE"
 }
 
+
+wget https://github.com/stefanpejcic/ipset-blacklist/archive/master.zip -O ipset-blacklist.zip
+unzip ipset-blacklist.zip
+
 # set configuration
 mkdir -p /etc/openpanel/ufw/
-cp configuration/blacklists.conf /etc/openpanel/ufw/blacklists.conf
+cp ipset-blacklist-master/configuration/blacklists.conf /etc/openpanel/ufw/blacklists.conf
 touch /etc/openpanel/ufw/exclude.list
 
 # main file
-cp ipset-blacklist.sh /usr/ipset-blacklist.sh
+cp ipset-blacklist-master/ipset-blacklist.sh /usr/ipset-blacklist.sh
 chmod +x /usr/ipset-blacklist.sh
 
 # set service
-cp service/ipset-blacklist.service /etc/systemd/system/ipset-blacklist.service
-cp service/ipset-blacklist.timer /etc/systemd/system/ipset-blacklist.timer
+cp ipset-blacklist-master/service/ipset-blacklist.service /etc/systemd/system/ipset-blacklist.service
+cp ipset-blacklist-master/service/ipset-blacklist.timer /etc/systemd/system/ipset-blacklist.timer
 systemctl daemon-reload
 systemctl enable ipset-blacklist.timer
 systemctl start ipset-blacklist.timer
