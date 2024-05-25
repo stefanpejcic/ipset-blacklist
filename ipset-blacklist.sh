@@ -3,6 +3,7 @@
 CONFIG_DIR="/etc/openpanel/ufw"
 BLACKLIST_CONF="${CONFIG_DIR}/blacklists.conf"
 EXCLUDE_FILE="${CONFIG_DIR}/exclude.list"
+IP_LIMIT_PER_BLACKLIST="20000"
 
 install_command() {
     local command_name=$1
@@ -64,7 +65,7 @@ update_ipset() {
     # fixes
     # ipset v7.15: Hash is full, cannot add more elements
     #
-    ipset create $IPSET_NAME hash:ip maxelem 20000
+    ipset create $IPSET_NAME hash:ip maxelem $IP_LIMIT_PER_BLACKLIST
 
     # Flush the IP set to remove old entries
     ipset flush $IPSET_NAME
