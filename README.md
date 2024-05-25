@@ -18,6 +18,55 @@ With AbuseIPDB:
 bash setup.sh --abuseipdb-key=API_KEY_HERE
 ```
 
+## Usage
+
+Usage: bash /usr/ipset-blacklist.sh
+
+### `--fetch`
+Download new IP addresses for all enabled blocklists.
+
+```bash
+bash /usr/ipset-blacklist.sh --fetch
+```
+
+### `--update_ufw`
+Update all ipsets rules and reload UFW service.
+
+```bash
+bash /usr/ipset-blacklist.sh --update_ufw
+```
+
+### `--add-blacklist`
+Add a new blacklist.
+
+```bash
+bash /usr/ipset-blacklist.sh --add-blacklist name=<name> url=<url>
+```
+
+### `--enable-blacklist`
+Enable a blacklist.
+
+```bash
+bash /usr/ipset-blacklist.sh --enable-blacklist=<name>
+```
+
+### `--disable-blacklist`
+Disable a blacklist.
+
+```bash
+bash /usr/ipset-blacklist.sh --disable-blacklist=<name>
+```
+
+### `--delete-blacklist`
+Delete a blacklist.
+
+```bash
+bash /usr/ipset-blacklist.sh --delete-blacklist=<name>
+```
+
+
+#################### OLD DOCS
+
 ## iptables filter rule
 
 ```sh
