@@ -14,6 +14,7 @@ check_install_jq() {
             exit 1
         fi
         echo "jq installed successfully."
+    fi
 }
 
 fetch_abuseipdb() {
