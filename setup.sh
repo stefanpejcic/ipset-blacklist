@@ -24,6 +24,7 @@ set_api_key() {
 }
 
 # set configuration
+mkdir -p /etc/openpanel/ufw/
 cp configuration/blacklists.conf /etc/openpanel/ufw/blacklists.conf
 touch /etc/openpanel/ufw/exclude.list
 
