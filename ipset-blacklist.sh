@@ -225,6 +225,15 @@ disable_blacklist() {
     fi
 }
 
+delete_blacklist() {
+    local blacklist_name="$1"
+    if grep -qF "^$blacklist_name|" "$BLACKLIST_CONF"; then
+        sed -i "/^$blacklist_name|/d" "$BLACKLIST_CONF"
+        echo "Deleted blacklist: $blacklist_name"
+    else
+        echo "Blacklist not found: $blacklist_name"
+    fi
+}
 
 
 
@@ -271,6 +280,11 @@ case "$1" in
         install_command "ipset"
         blacklist_name="${1#--disable-blacklist=}"
         disable_blacklist "$blacklist_name"
+        ;;
+    --delete-blacklist=*)
+        install_command "ipset"
+        blacklist_name="${1#--delete-blacklist=}"
+        delete_blacklist "$blacklist_name"
         ;;
     *)
         usage
