@@ -124,13 +124,38 @@ update_ipset() {
 
 update_ufw() {
     echo "Updating UFW rules..."
+
+
+
+*raw
+:ufw-before-logging-deny - [0:0]
+
+# Logging and blocking for openpanel_ipset
+-A PREROUTING -m set --match-set openpanel_ipset src -j LOG --log-prefix "Blocklist openpanel_ipset: "
+-A PREROUTING -m set --match-set openpanel_ipset src -j DROP
+
+# Logging and blocking for blacklist1
+-A PREROUTING -m set --match-set blacklist1 src -j LOG --log-prefix "Blocklist blacklist1: "
+-A PREROUTING -m set --match-set blacklist1 src -j DROP
+
+# Logging and blocking for blacklist2
+-A PREROUTING -m set --match-set blacklist2 src -j LOG --log-prefix "Blocklist blacklist2: "
+-A PREROUTING -m set --match-set blacklist2 src -j DROP
+
+
+
+
+
+
+    
     for IPSET_NAME in $(ipset list -name); do
         iptables -C INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix "Blocklist $IPSET_NAME: " > /dev/null 2>&1
         if [ $? -ne 0 ]; then
             iptables -I INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix "Blocklist $IPSET_NAME: "
             iptables -I INPUT -m set --match-set $IPSET_NAME src -j DROP
-            echo "iptables -I INPUT -m set --match-set $IPSET_NAME src -j LOG --log-prefix 'Blocklist $IPSET_NAME: '" >> /etc/ufw/before.rules
-            echo "iptables -I INPUT -m set --match-set $IPSET_NAME src -j DROP" >> /etc/ufw/before.rules
+            
+            echo "-A PREROUTING -m set --match-set $IPSET_NAME src -j LOG --log-prefix 'Blocklist $IPSET_NAME: '" >> /etc/ufw/before.rules
+            echo "-A PREROUTING -m set --match-set $IPSET_NAME src -j DROP" >> /etc/ufw/before.rules
         fi
     done
 
